@@ -1,32 +1,45 @@
-
-
 ###### MacOS SFML Makefile ######
+
 # Replace this with the path you get from `brew info sfml`
 SFML_PATH = /opt/homebrew/Cellar/sfml/3.0.2
 
 # Replace "src" with the name of the folder where all your cpp code is
 cppFileNames := $(shell find ./src -type f -name "*.cpp")
-
-mac-compile:	
+mac-compile:
 	mkdir -p bin
-	g++ $(cppFileNames) -I$(SFML_PATH)/include -o main -L$(SFML_PATH)/lib -lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio -lsfml-network
-################################
+	g++ -std=c++17 $(cppFileNames) \
+	-I$(SFML_PATH)/include \
+	-o bin/main \
+	-L$(SFML_PATH)/lib \
+	-lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio -lsfml-network
+
+mac-run: mac-compile
+	./bin/main
+
+mac-clean:
+	rm -f main
+
+
 
 ###### Windows SFML Makefile ######
 
-all: compile link # Windows
+# Adjust this if your SFML path is different
+SFML_PATH = C:\Users\Antoan\OneDrive\Pictures\Documents\libraries\SFML-3.0.0
 
-# Replace this with the path to your SFML "lib" folder
-compile:
-	g++ -c main.cpp -I"C:\Users\Antoan\OneDrive\Pictures\Documents\libraries\SFML-3.0.0\include"
+SRC = src\main.cpp
+OUT = bin\main.exe
 
-link:
-	g++ main.o -o main.exe \
-	-L"C:\Users\Antoan\OneDrive\Pictures\Documents\libraries\SFML-3.0.0\lib" \
-	-lsfml-graphics -lsfml-window -lsfml-system
+all: build
 
-clean:
-	del *.o main.exe
+build:
+	if not exist bin mkdir bin
+	g++ -std=c++17 $(SRC) -o $(OUT) ^
+	-I"$(SFML_PATH)\include" ^
+	-L"$(SFML_PATH)\lib" ^
+	-lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio -lsfml-network
 
 run:
-	.\main.exe
+	$(OUT)
+
+clean:
+	del /Q bin\*.exe 2>nul
