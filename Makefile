@@ -1,7 +1,7 @@
 ###### MacOS SFML Makefile ######
 
 # Replace this with the path you get from `brew info sfml`
-SFML_PATH = /opt/homebrew/Cellar/sfml/3.0.2
+SFML_PATH = /Users/1044845/Documents/SFML-3.0.2
 
 # Replace "src" with the name of the folder where all your cpp code is
 cppFileNames := $(shell find ./src -type f -name "*.cpp")
