@@ -15,7 +15,7 @@ compile:
 	-Wl,-rpath,$(SFML_PATH)/lib \
 	-lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio -lsfml-network
 #remove -Wl line if there are issues.
-run: mac-compile
+run: compile
 	./bin/main
 
 clean:
