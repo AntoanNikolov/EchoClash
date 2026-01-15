@@ -36,7 +36,7 @@ The core gameplay will be a stationary center turret defending against waves of 
 brew install sfml
 ```
 
-- Verify the version:
+- Find sfml's path:
 
 ```bash
 brew info sfml
@@ -48,7 +48,6 @@ brew info sfml
 
 - Update SFML_PATH accordingly in the Makefile.
 
-#### Make sure to add the path to the "include" folder to your project/ide settings
 ### 2. Build and Run
 
 From the project root:  
