@@ -18,6 +18,15 @@ struct Enemy {
     sf::Vector2f velocity;
 };
 
+struct Echo {
+    sf::CircleShape shape;
+    sf::Vector2f velocity;
+    float intensity;
+    float elapsedTime; // we need this for the radius to decrease over time
+};
+
+
+
 int main() {
     const unsigned int WINDOW_W = 800;
     const unsigned int WINDOW_H = 600;
@@ -26,6 +35,10 @@ int main() {
     // VideoMode in SFML 3 accepts a Vector2u
     sf::RenderWindow window(sf::VideoMode({WINDOW_W, WINDOW_H}), "Turret Waves - SFML");
     window.setFramerateLimit(60);
+
+    sf::ContextSettings settings;
+    settings.antialiasingLevel = 8; // makes the arc of the echo smoother
+    window.setSettings(settings); // apply settings to the window
 
     // Random generator
     std::random_device rd;
@@ -45,8 +58,19 @@ int main() {
     const float fireCooldown = 0.20f;
     float timeSinceLastShot = fireCooldown;
 
+
+    // Echolocation (soundwave)
+    const float echoSpeed = 520.f;
+    const float echoCooldown = 0.20f;
+    // Define arc properties (had to look this up, arcs are weird)
+    float radius = 100;
+    float startAngle = 45; // In degrees
+    float endAngle = 135; // In degrees
+    int segments = 60; // More segments = smoother arc
+
     std::vector<Bullet> bullets;
     std::vector<Enemy> enemies;
+    std::vector<Echo> echos;
 
     int wave = 1;
     bool waveActive = false;
@@ -139,6 +163,7 @@ int main() {
             b.shape.setFillColor(sf::Color::Yellow);
             bullets.push_back(b); // add to bullets list
         }
+
 
         // Update bullets
         for (int i = 0; i < bullets.size(); ) {
