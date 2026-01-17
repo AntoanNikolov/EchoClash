@@ -19,10 +19,10 @@ struct Enemy {
 };
 
 struct Echo {
-    sf::CircleShape shape;
+    sf::RectangleShape shape;
+    float length; // changes
+    float elapsedTime; // time since spawn
     sf::Vector2f velocity;
-    float intensity;
-    float elapsedTime; // we need this for the radius to decrease over time
 };
 
 
@@ -36,9 +36,6 @@ int main() {
     sf::RenderWindow window(sf::VideoMode({WINDOW_W, WINDOW_H}), "Turret Waves - SFML");
     window.setFramerateLimit(60);
 
-    sf::ContextSettings settings;
-    settings.antialiasingLevel = 8; // makes the arc of the echo smoother
-    window.setSettings(settings); // apply settings to the window
 
     // Random generator
     std::random_device rd;
@@ -60,13 +57,14 @@ int main() {
 
 
     // Echolocation (soundwave)
+    float echoAngleDeg = 0.f; // degrees
+    const float echoThickness = 6.f;
     const float echoSpeed = 520.f;
-    const float echoCooldown = 0.20f;
-    // Define arc properties (had to look this up, arcs are weird)
-    float radius = 100;
-    float startAngle = 45; // In degrees
-    float endAngle = 135; // In degrees
-    int segments = 60; // More segments = smoother arc
+    const float echoMaxCharge = 150.f; // Max LENGTH when fully charged
+    const float echoChargeRate = 200.f; // how fast length increases per second when W is held
+    const float echoShrinkRate = 100.f;  // How fast echo shrinks per second
+    float echoCharge = 0.f; // Current charge amount
+    bool wasWHeld = false; // track if W was held last frame
 
     std::vector<Bullet> bullets;
     std::vector<Enemy> enemies;
@@ -163,10 +161,57 @@ int main() {
             b.shape.setFillColor(sf::Color::Yellow);
             bullets.push_back(b); // add to bullets list
         }
+        
+        // Echolocation: W key (charge and release)
+        bool isWHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up);
+        if (isWHeld) {
+            // Charge the echo
+            echoCharge = echoCharge + dt * echoChargeRate, echoMaxCharge;
+        } else if (wasWHeld && echoCharge > 0.f) {
+            // if W was released - spawn the echo with the accumulated charge
+            Echo ec;
+            ec.length = echoCharge;
+            ec.elapsedTime = 0.f; // just spawned
+            float rad = turretAngleDeg * 3.14159265f / 180.f; // line must be perpendicular to turret direction
+            ec.velocity = sf::Vector2f(std::cos(rad), std::sin(rad));
+            // Create rectangle perpendicular to direction (width = thickness, length = charge)
+            ec.shape = sf::RectangleShape(sf::Vector2f(ec.length, echoThickness));
+            ec.shape.setOrigin(sf::Vector2f(ec.length / 2.f, echoThickness / 2.f)); // center origin so it shrinks from both sides
+            ec.shape.setPosition(CENTER);
+            ec.shape.setRotation(sf::degrees(turretAngleDeg + 90.f)); // perpendicular to turret direction
+            ec.shape.setFillColor(sf::Color::Cyan);
+            echos.push_back(ec);
+            echoCharge = 0.f;  // Reset charge
+        }
+        wasWHeld = isWHeld;
 
+
+
+        // Update echos (shrinking rectangles that fly outward)
+        for (size_t i = 0; i < echos.size(); ) {
+            echos[i].elapsedTime += dt;
+            
+            // Rectangle shrinks at constant rate
+            echos[i].length = (echos[i].length - dt * echoShrinkRate);
+            
+            // Update rectangle size according to the above change
+            echos[i].shape.setSize(sf::Vector2f(echos[i].length, echoThickness));
+            echos[i].shape.setOrigin(sf::Vector2f(echos[i].length / 2.f, echoThickness / 2.f)); // recenter as it shrinks
+            
+            // Move outward from center
+            sf::Vector2f offset = echos[i].velocity * echoSpeed * echos[i].elapsedTime;
+            // ^ The above line caluclates how far an echo has traveled by multiplying its direction by speed and total time alive
+            echos[i].shape.setPosition(CENTER + offset);
+            // Remove when length is 0
+            if (echos[i].length <= 0.f) {
+                echos.erase(echos.begin() + i);
+            } else {
+                ++i;
+            }
+        }
 
         // Update bullets
-        for (int i = 0; i < bullets.size(); ) {
+        for (size_t i = 0; i < bullets.size(); ) {
             Bullet &b = bullets[i]; //take current bullet
             b.shape.move(b.velocity * dt); //move it according to its velocity
             sf::Vector2f p = b.shape.getPosition(); // current position
@@ -177,12 +222,12 @@ int main() {
         }
 
         // Keep updating all enemies
-        for (int i = 0; i < enemies.size(); ++i) {
+        for (size_t i = 0; i < enemies.size(); ++i) {
             enemies[i].shape.move(enemies[i].velocity * dt);
         }
 
         // Collision detection: bullets vs enemies
-        for (int bi = 0; bi < bullets.size(); ) {
+        for (size_t bi = 0; bi < bullets.size(); ) {
             bool bulletRemoved = false;
             sf::Vector2f bp = bullets[bi].shape.getPosition(); // bullet position
             for (size_t ei = 0; ei < enemies.size(); ++ei) { // check against all enemies
@@ -203,7 +248,7 @@ int main() {
         }
 
         // Check if any enemy reached the center -> remove them (as if they hit the turret)
-        for (int i = 0; i < enemies.size(); ) {
+        for (size_t i = 0; i < enemies.size(); ) {
             sf::Vector2f ep = enemies[i].shape.getPosition(); // enemy position
             float dx = ep.x - CENTER.x;
             float dy = ep.y - CENTER.y;
@@ -235,6 +280,11 @@ int main() {
 
         // Draw bullets
         for (auto &b : bullets) window.draw(b.shape);
+        
+        // Draw echos
+        for (auto &ec : echos) {
+            window.draw(ec.shape);
+        }
 
         // Draw turret: base circle
         sf::CircleShape base(turretRadius);
