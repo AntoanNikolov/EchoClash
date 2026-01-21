@@ -16,7 +16,23 @@ struct Bullet {
 struct Enemy {
     sf::CircleShape shape;
     sf::Vector2f velocity;
+    bool visible = false;
+    float visibilityTimer = 0.f; // seconds remaining the enemy stays "visible"
+
+    void set_visibility(bool v);
 };
+
+void Enemy::set_visibility(bool v) {
+    visible = v;
+    // Optional: change visual appearance immediately when visibility toggles
+    if (visible) {
+        // e.g. brighter color to indicate "hit"
+        shape.setFillColor(sf::Color(255, 200, 100));
+    } else {
+        // restore normal color when visibility ends
+        shape.setFillColor(sf::Color(200, 60, 60));
+    }
+}
 
 struct Echo {
     sf::RectangleShape shape;
@@ -71,6 +87,7 @@ int main() {
     std::vector<Echo> echos;
 
     int wave = 1;
+    int lives = 5;
     bool waveActive = false;
     float nextWaveTimer = 0.f;
     const float timeBetweenWaves = 1.0f;
@@ -78,11 +95,11 @@ int main() {
     sf::Font font;
     bool fontLoaded = false;
     // SFML 3: openFromFile()
-    if (font.openFromFile("assets/sansation.ttf")) {
-        fontLoaded = true;
-    } else {
-        std::cerr << "Warning: could not open font assets/sansation.ttf. UI text will be hidden.\n";
-    }
+    // if (font.openFromFile("/assets/sansation.tt")) {
+    //     fontLoaded = true;
+    // } else {
+    //     std::cerr << "Warning: could not open font assets/sansation.ttf. UI text will be hidden.\n";
+    // }
 
     // Text in SFML 3 requires a Font in the constructor
     sf::Text uiText(font, "", 18);
@@ -90,8 +107,12 @@ int main() {
     uiText.setPosition(sf::Vector2f(8.f, 8.f));
 
     // Helper to spawn a wave (spawn count increases each wave)
+    float total_intensity = 0.f;
     auto spawnWave = [&](int waveNumber) {
-        int count = 4 + waveNumber * 2;
+        int count = 0 + total_intensity/4; // might not be dividing by the right number *****
+
+        
+        // int count = 1 + waveNumber * 2;
         enemies.clear();
         enemies.reserve(count); // we reserve enough to store more enemies and avoid reallocations
         float spawnRadius = std::max(WINDOW_W, WINDOW_H) / 2.f + 50.f;
@@ -102,6 +123,9 @@ int main() {
             e.shape = sf::CircleShape(14.f); // give it a circle shape 
             e.shape.setOrigin(sf::Vector2f(e.shape.getRadius(), e.shape.getRadius())); // by default origin is top-left, we are centering it
             e.shape.setPosition(pos); // move he ORIGIN we made in the line above
+             // ... velocity setup ...
+            e.visible = false;          // ensure default
+            e.visibilityTimer = 0.f;    // ensure default
             // velocity towards center
             sf::Vector2f dir = CENTER - pos; //vector pointing from the enemy position to the center. Center - enemy position
             float len = std::sqrt(dir.x*dir.x + dir.y*dir.y); // find distance
@@ -109,7 +133,7 @@ int main() {
             // speed increases with wave number + some random variation
             float speed = 40.f + 8.f * waveNumber + (std::uniform_real_distribution<float>(-10.f, 10.f)(rng));
             e.velocity = dir * speed; //this makes the enemy actually move
-            e.shape.setFillColor(sf::Color(200, 60, 60));
+            e.shape.setFillColor(sf::Color(0, 0, 0, 0));
             enemies.push_back(e); // adds the enemy
         }
         waveActive = true;
@@ -162,7 +186,7 @@ int main() {
             bullets.push_back(b); // add to bullets list
         }
         
-        // Echolocation: W key (charge and release)
+        // Echolocation: Up Arrow key (charge and release)
         bool isWHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up);
         if (isWHeld) {
             // Charge the echo
@@ -171,6 +195,7 @@ int main() {
             // if W was released - spawn the echo with the accumulated charge
             Echo ec;
             ec.length = echoCharge;
+            total_intensity += ec.length;
             ec.elapsedTime = 0.f; // just spawned
             float rad = turretAngleDeg * 3.14159265f / 180.f; // line must be perpendicular to turret direction
             ec.velocity = sf::Vector2f(std::cos(rad), std::sin(rad));
@@ -207,6 +232,62 @@ int main() {
                 echos.erase(echos.begin() + i);
             } else {
                 ++i;
+            }
+        }
+
+        if (!lives){
+            return 0;
+        }
+
+        // For each enemy, check against each echo using the echo rectangle's inverse transform.
+        // Transform the enemy center into the echo's local space (where the rectangle is axis-aligned and centered),
+        // clamp to the rectangle extents to find the closest point, then test circle-vs-point distance.
+        // On hit: set enemy visible and start a 4.0s timer (do NOT erase the enemy).
+        for (size_t ei = 0; ei < enemies.size(); ++ei) {
+            const sf::Vector2f enemyPos = enemies[ei].shape.getPosition();
+            const float enemyR = enemies[ei].shape.getRadius();
+            bool hit = false;
+            for (size_t ec_i = 0; ec_i < echos.size(); ++ec_i) {
+                const Echo &ec = echos[ec_i];
+                // If an echo has non-positive length skip
+                if (ec.length <= 0.f) continue;
+
+                // Inverse-transform the enemy position into the echo's local coordinates
+                sf::Transform inv = ec.shape.getTransform().getInverse();
+                sf::Vector2f local = inv.transformPoint(enemyPos);
+
+                // Rectangle is centered at origin in local space, extents are half-length and half-thickness
+                float halfW = ec.length / 2.f;
+                float halfH = echoThickness / 2.f;
+
+                // Find closest point on the axis-aligned rectangle to the local point
+                float closestX = std::max(-halfW, std::min(local.x, halfW));
+                float closestY = std::max(-halfH, std::min(local.y, halfH));
+
+                float dx = local.x - closestX;
+                float dy = local.y - closestY;
+                float dist2 = dx*dx + dy*dy;
+
+                if (dist2 <= enemyR * enemyR) {
+                    // Hit: mark enemy visible for 4 seconds (don't erase)
+                    enemies[ei].set_visibility(true);
+                    enemies[ei].visibilityTimer = 4.0f; // seconds
+                    hit = true;
+                    std::cout << "collision" << std::endl;
+                    break;
+                }
+            }
+            (void)hit; // unused here but kept for clarity if you add debug/use it
+            }
+
+        // Per-frame: update enemy visibility timers
+        for (size_t i = 0; i < enemies.size(); ++i) {
+            if (enemies[i].visibilityTimer > 0.f) {
+                enemies[i].visibilityTimer -= dt;
+                if (enemies[i].visibilityTimer <= 0.f) {
+                    enemies[i].visibilityTimer = 0.f;
+                    enemies[i].set_visibility(false);
+                }
             }
         }
 
@@ -256,6 +337,7 @@ int main() {
             if (dist2 <= (turretRadius + enemies[i].shape.getRadius()) * (turretRadius + enemies[i].shape.getRadius())) {
                 // enemy reached turret: remove it
                 enemies.erase(enemies.begin() + i);
+                lives--;
             } else ++i;
         }
 
@@ -285,6 +367,8 @@ int main() {
         for (auto &ec : echos) {
             window.draw(ec.shape);
         }
+        total_intensity -= 10.f; // might not be subtracting by the right number *****
+        if (total_intensity < 0.f) total_intensity = 0.f;
 
         // Draw turret: base circle
         sf::CircleShape base(turretRadius);
@@ -319,6 +403,5 @@ int main() {
 
         window.display();
     }
-
     return 0;
 }
