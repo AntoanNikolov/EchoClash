@@ -72,11 +72,10 @@ int main() {
     // Make Charge Bar
     sf::RectangleShape chargeBarBackground(sf::Vector2f(26.f, 157.f));
     sf::RectangleShape chargeBar(sf::Vector2f(barWidth, 0.f));
-    chargeBar.setOrigin(sf::Vector2f(-10.f, -440.f));
+    chargeBar.setOrigin(sf::Vector2f(-10.f, -590.f));
     chargeBar.setFillColor(sf::Color::Cyan);
     chargeBarBackground.setOrigin(sf::Vector2f(-7.5, -436.f));
     chargeBarBackground.setFillColor(sf::Color(100, 100, 100));
-    chargeBar.setRotation(sf::degrees(180.f));
 
     // Shooting
     const float bulletSpeed = 520.f;
@@ -204,7 +203,7 @@ int main() {
         if (isWHeld) {
             // Charge the echo
             echoCharge = echoCharge + dt * echoChargeRate, echoMaxCharge;
-            chargeBar.setSize(sf::Vector2f(barWidth, echoCharge));
+            chargeBar.setSize(sf::Vector2f(barWidth, -(echoCharge)));
         } else if (wasWHeld && echoCharge > 0.f) {
             // if W was released - spawn the echo with the accumulated charge
             chargeBar.setSize(sf::Vector2f(barWidth, 0.f));
