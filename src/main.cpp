@@ -69,6 +69,14 @@ int main() {
     const float barWidth = 20.f;
     float barCharge = 0.f;
 
+    // Make Charge Bar
+    sf::RectangleShape chargeBarBackground(sf::Vector2f(26.f, 157.f));
+    sf::RectangleShape chargeBar(sf::Vector2f(barWidth, 0.f));
+    chargeBar.setOrigin(sf::Vector2f(-10.f, -440.f));
+    chargeBar.setFillColor(sf::Color::Cyan);
+    chargeBarBackground.setOrigin(sf::Vector2f(-7.5, -436.f));
+    chargeBarBackground.setFillColor(sf::Color(100, 100, 100));
+
     // Shooting
     const float bulletSpeed = 520.f;
     const float bulletRadius = 4.f;
@@ -189,16 +197,16 @@ int main() {
             b.shape.setFillColor(sf::Color::Yellow);
             bullets.push_back(b); // add to bullets list
         }
-        
+
         // Echolocation: Up Arrow key (charge and release)
         bool isWHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up);
         if (isWHeld) {
             // Charge the echo
             echoCharge = echoCharge + dt * echoChargeRate, echoMaxCharge;
-            barCharge.setSize(barWidth, echoCharge);
+            chargeBar.setSize(sf::Vector2f(barWidth, echoCharge));
         } else if (wasWHeld && echoCharge > 0.f) {
             // if W was released - spawn the echo with the accumulated charge
-            barCharge.setSize(barWidth, 0);
+            chargeBar.setSize(sf::Vector2f(barWidth, 0.f));
             Echo ec;
             ec.length = echoCharge;
             total_intensity += ec.length;
@@ -376,22 +384,16 @@ int main() {
         total_intensity -= 10.f; // might not be subtracting by the right number *****
         if (total_intensity < 0.f) total_intensity = 0.f;
 
+        // Draw Charge Bar
+        window.draw(chargeBarBackground);
+        window.draw(chargeBar);
+
         // Draw turret: base circle
         sf::CircleShape base(turretRadius);
         base.setOrigin(sf::Vector2f(turretRadius, turretRadius));
         base.setPosition(CENTER);
         base.setFillColor(sf::Color(120, 180, 220));
         window.draw(base);
-
-        // Draw charge bar
-        sf::RectangleShape chargeBarBackground(sf::Vector2f(26, 157));
-        sf::RectangleShape chargeBar(sf::Vector2f(barWidth, 0));
-        chargeBar.setOrigin(sf::Vector2f(-10.f, -440.f));
-        chargeBar.setFillColor(sf::Color::Cyan);
-        chargeBarBackground.setOrigin(sf::Vector2f(-7.5, -436.f));
-        chargeBarBackground.setFillColor(sf::Color(100, 100, 100));
-        window.draw(chargeBarBackground);
-        window.draw(chargeBar);
 
         // Draw barrel (rectangle) rotated by turretAngleDeg
         sf::RectangleShape barrel(sf::Vector2f(barrelLength, barrelThickness));
