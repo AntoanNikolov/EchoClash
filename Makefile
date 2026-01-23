@@ -12,7 +12,7 @@ UNAME_S := $(shell uname -s)
 # ---------- OS-SPECIFIC SETTINGS ----------
 ifeq ($(UNAME_S),Darwin)
 	# macOS (Homebrew)
-	SFML_PATH = /Users/1007269/.homebrew/Cellar/sfml/3.0.2
+	SFML_PATH = /opt/homebrew/Cellar/sfml/3.0.2
 	INCLUDES = -I$(SFML_PATH)/include
 	LIBS = -L$(SFML_PATH)/lib \
 	       -Wl,-rpath,$(SFML_PATH)/lib \

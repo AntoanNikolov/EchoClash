@@ -41,6 +41,13 @@ struct Echo {
     sf::Vector2f velocity;
 };
 
+struct BigEcho {
+    sf::CircleShape shape;
+    float radius; // changes
+    float elapsedTime; // time since spawn
+    sf::Vector2f velocity;
+};
+
 int main() {
     const unsigned int WINDOW_W = 800;
     const unsigned int WINDOW_H = 600;
@@ -50,6 +57,20 @@ int main() {
     sf::RenderWindow window(sf::VideoMode({WINDOW_W, WINDOW_H}), "EchoClash");
     window.requestFocus();
     window.setFramerateLimit(60);
+
+    sf::Font font;
+    bool fontLoaded = false;
+    // SFML 3: openFromFile()
+    if (font.openFromFile("/Users/antoan/Documents/CSC222/EchoClash/assets/ARIAL.ttf")) {
+        fontLoaded = true;
+    } else {
+        std::cerr << "Warning: could not open font. UI text will be hidden.\n";
+    }   
+
+    // Text in SFML 3 requires a Font in the constructor
+    sf::Text uiText(font, "", 18);
+    uiText.setFillColor(sf::Color::White);
+    uiText.setPosition(sf::Vector2f(350.f, 8.f));
 
     // Random generator
     std::random_device rd;
@@ -74,6 +95,22 @@ int main() {
     chargeBarBackground.setOrigin(sf::Vector2f(-7.5, -436.f));
     chargeBarBackground.setFillColor(sf::Color(100, 100, 100));
 
+    // Make Big Wave Charge Bar (on the right side)
+    sf::RectangleShape bigWaveChargeBarBackground(sf::Vector2f(26.f, 207.f)); // increased 2nd value to accomodate the big wave but it still shrinks from 0-157. 
+    sf::RectangleShape bigWaveChargeBar(sf::Vector2f(barWidth, 0.f));
+    bigWaveChargeBar.setOrigin(sf::Vector2f(-770.f, -590.f));
+    bigWaveChargeBar.setFillColor(sf::Color::Magenta);
+    bigWaveChargeBarBackground.setOrigin(sf::Vector2f(-767.5, -436.f)); 
+    bigWaveChargeBarBackground.setFillColor(sf::Color(100, 100, 100));
+
+    // Make Pause Menu
+    sf::RectangleShape resumeButton(sf::Vector2f(200.f, 80.f));
+    sf::RectangleShape quitButton(sf::Vector2f(200.f, 80.f));
+    resumeButton.setOrigin(sf::Vector2f(-300.f, -200.f));
+    quitButton.setOrigin(sf::Vector2f(-300.f, -290.f));
+    resumeButton.setFillColor(sf::Color(100, 100, 100, 0));
+    quitButton.setFillColor(sf::Color(100, 100, 100, 0));
+
     // Shooting
     const float bulletSpeed = 520.f;
     const float bulletRadius = 4.f;
@@ -95,10 +132,17 @@ int main() {
     const float echoShrinkRate = 100.f;  // How fast echo shrinks per second
     float echoCharge = 0.f; // Current charge amount
     bool wasWHeld = false; // track if W was held last frame
+    // 360 Wave (Big Wave)
+    bool wasEHeld = false; // track if E was held last frame
+    float bigWaveCharge = 0.f; // Current big wave charge
+    const float bigWaveMaxCharge = 200.f; // Max radius when fully charged
+    const float bigWaveChargeRate = 250.f; // how fast radius increases per second when E is held
+    const float bigWaveShrinkRate = 150.f; // How fast big wave shrinks per second
 
     std::vector<Bullet> bullets;
     std::vector<Enemy> enemies;
     std::vector<Echo> echos;
+    std::vector<BigEcho> BigEchos;
 
     int wave = 1;
     int lives = 10;
@@ -106,9 +150,10 @@ int main() {
     bool waveActive = false;
     float nextWaveTimer = 0.f;
     const float timeBetweenWaves = 1.0f;
+    bool isPaused = false;
 
     // Make Hearts
-    sf::Texture heartTexture("heart.png");
+    sf::Texture heartTexture("assets/heart.png");
     sf::Sprite heartSprite(heartTexture);
     heartSprite.setTextureRect(sf::IntRect({0, 0}, {8000 * lives, 7000}));
     heartSprite.setPosition(sf::Vector2f(10.f, 10.f));
@@ -118,24 +163,10 @@ int main() {
     heartTexture.setSmooth(true);
     window.draw(heartSprite);
 
-    sf::Font font;
-    bool fontLoaded = false;
-    // SFML 3: openFromFile()
-    // if (font.openFromFile("/assets/sansation.tt")) {
-    //     fontLoaded = true;
-    // } else {
-    //     std::cerr << "Warning: could not open font assets/sansation.ttf. UI text will be hidden.\n";
-    // }
-
-    // Text in SFML 3 requires a Font in the constructor
-    sf::Text uiText(font, "", 18);
-    uiText.setFillColor(sf::Color::White);
-    uiText.setPosition(sf::Vector2f(8.f, 8.f));
-
     // Helper to spawn a wave (spawn count increases each wave)
     float total_intensity = 0.f;
     auto spawnWave = [&](int waveNumber) {
-        int count = 1 + total_intensity/4; // might not be dividing by the right number *****
+    int count = 1 + total_intensity/6; // might not be dividing by the right number *****
 
         
         // int count = 1 + waveNumber * 2;
@@ -181,227 +212,294 @@ int main() {
                 window.close(); //if the window is closed, we close it. woah.
             }
         }
-
-        // initially no rotation this frame
-        float rotationThisFrame = 0.f;
-        // SFML 3 key enum is nested under sf::Keyboard::Key
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
-            rotationThisFrame -= rotationSpeedDegPerSec * dt;
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
-            rotationThisFrame += rotationSpeedDegPerSec * dt;
-        }
-        turretAngleDeg += rotationThisFrame;
-        // stick whithin 0-360 range
-        if (turretAngleDeg > 360.f) turretAngleDeg -= 360.f;
-        if (turretAngleDeg < 0.f) turretAngleDeg += 360.f;
-
-        // Shooting: spacebar
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) && timeSinceLastShot >= fireCooldown) {
-            timeSinceLastShot = 0.f;
-            // create bullet
-            Bullet b;
-            b.shape = sf::CircleShape(bulletRadius);
-            b.shape.setOrigin(sf::Vector2f(bulletRadius, bulletRadius)); // this centers the circle shape
-            b.shape.setPosition(CENTER); //shooting from center of turret
-            // compute direction from turretAngleDeg
-            float rad = turretAngleDeg * 3.14159265f / 180.f; // degrees to radians
-            sf::Vector2f dir(std::cos(rad), std::sin(rad)); // direction vector
-            b.velocity = dir * bulletSpeed; // velocity (makes the bullet move)
-            b.shape.setFillColor(sf::Color::Yellow);
-            bullets.push_back(b); // add to bullets list
-        }
-
-        // Echolocation: Up Arrow key (charge and release)
-        bool isWHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up);
-        if (isWHeld) {
-            // Charge the echo
-            if (echoCharge <= echoMaxCharge) {
-                echoCharge = echoCharge + dt * echoChargeRate;
-                chargeBar.setSize(sf::Vector2f(barWidth, -(echoCharge)));
-            } else {
-                echoCharge = echoMaxCharge;
-                chargeBar.setSize(sf::Vector2f(barWidth, -(echoCharge)));
+        
+        if(!isPaused) {
+            // initially no rotation this frame
+            float rotationThisFrame = 0.f;
+            // SFML 3 key enum is nested under sf::Keyboard::Key
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) {
+                rotationThisFrame -= rotationSpeedDegPerSec * dt;
             }
-        } else if (wasWHeld && echoCharge > 0.f) {
-            // if W was released - spawn the echo with the accumulated charge
-            chargeBar.setSize(sf::Vector2f(barWidth, 0.f));
-            Echo ec;
-            ec.length = echoCharge * 1.5f;
-            total_intensity += ec.length;
-            ec.elapsedTime = 0.f; // just spawned
-            float rad = turretAngleDeg * 3.14159265f / 180.f; // line must be perpendicular to turret direction
-            ec.velocity = sf::Vector2f(std::cos(rad), std::sin(rad));
-            // Create rectangle perpendicular to direction (width = thickness, length = charge)
-            ec.shape = sf::RectangleShape(sf::Vector2f(ec.length, echoThickness));
-            ec.shape.setOrigin(sf::Vector2f(ec.length / 2.f, echoThickness / 2.f)); // center origin so it shrinks from both sides
-            ec.shape.setPosition(CENTER);
-            ec.shape.setRotation(sf::degrees(turretAngleDeg + 90.f)); // perpendicular to turret direction
-            ec.shape.setFillColor(sf::Color::Cyan);
-            echos.push_back(ec);
-            echoCharge = 0.f;  // Reset charge
-        }
-        wasWHeld = isWHeld;
-
-
-
-        // Update echos (shrinking rectangles that fly outward)
-        for (size_t i = 0; i < echos.size(); ) {
-            echos[i].elapsedTime += dt;
-            
-            // Rectangle shrinks at constant rate
-            echos[i].length = (echos[i].length - dt * echoShrinkRate);
-            
-            // Update rectangle size according to the above change
-            echos[i].shape.setSize(sf::Vector2f(echos[i].length, echoThickness));
-            echos[i].shape.setOrigin(sf::Vector2f(echos[i].length / 2.f, echoThickness / 2.f)); // recenter as it shrinks
-            
-            // Move outward from center
-            sf::Vector2f offset = echos[i].velocity * echoSpeed * echos[i].elapsedTime;
-            // ^ The above line caluclates how far an echo has traveled by multiplying its direction by speed and total time alive
-            echos[i].shape.setPosition(CENTER + offset);
-            // Remove when length is 0
-            if (echos[i].length <= 0.f) {
-                echos.erase(echos.begin() + i);
-            } else {
-                ++i;
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
+                rotationThisFrame += rotationSpeedDegPerSec * dt;
             }
-        }
+            turretAngleDeg += rotationThisFrame;
+            // stick whithin 0-360 range
+            if (turretAngleDeg > 360.f) turretAngleDeg -= 360.f;
+            if (turretAngleDeg < 0.f) turretAngleDeg += 360.f;
 
-        if (!lives){
-            return 0;
-        }
-
-        // For each enemy, check against each echo using the echo rectangle's inverse transform.
-        // Transform the enemy center into the echo's local space (where the rectangle is axis-aligned and centered),
-        // clamp to the rectangle extents to find the closest point, then test circle-vs-point distance.
-        // On hit: set enemy visible and start a 4.0s timer (do NOT erase the enemy).
-        for (size_t ei = 0; ei < enemies.size(); ++ei) {
-            const sf::Vector2f enemyPos = enemies[ei].shape.getPosition();
-            const float enemyR = enemies[ei].shape.getRadius();
-            bool hit = false;
-            for (size_t ec_i = 0; ec_i < echos.size(); ++ec_i) {
-                const Echo &ec = echos[ec_i];
-                // If an echo has non-positive length skip
-                if (ec.length <= 0.f) continue;
-
-                // Inverse-transform the enemy position into the echo's local coordinates
-                sf::Transform inv = ec.shape.getTransform().getInverse();
-                sf::Vector2f local = inv.transformPoint(enemyPos);
-
-                // Rectangle is centered at origin in local space, extents are half-length and half-thickness
-                float halfW = ec.length / 2.f;
-                float halfH = echoThickness / 2.f;
-
-                // Find closest point on the axis-aligned rectangle to the local point
-                float closestX = std::max(-halfW, std::min(local.x, halfW));
-                float closestY = std::max(-halfH, std::min(local.y, halfH));
-
-                float dx = local.x - closestX;
-                float dy = local.y - closestY;
-                float dist2 = dx*dx + dy*dy;
-
-                if (dist2 <= enemyR * enemyR) {
-                    // Hit: mark enemy visible for 4 seconds (don't erase)
-                    enemies[ei].set_visibility(true);
-                    enemies[ei].visibilityTimer = 4.0f; // seconds
-                    hit = true;
-                    std::cout << "collision" << std::endl;
-                    break;
-                }
-            }
-            (void)hit; // unused here but kept for clarity if you add debug/use it
+            // Shooting: spacebar
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) && timeSinceLastShot >= fireCooldown) {
+                timeSinceLastShot = 0.f;
+                // create bullet
+                Bullet b;
+                b.shape = sf::CircleShape(bulletRadius);
+                b.shape.setOrigin(sf::Vector2f(bulletRadius, bulletRadius)); // this centers the circle shape
+                b.shape.setPosition(CENTER); //shooting from center of turret
+                // compute direction from turretAngleDeg
+                float rad = turretAngleDeg * 3.14159265f / 180.f; // degrees to radians
+                sf::Vector2f dir(std::cos(rad), std::sin(rad)); // direction vector
+                b.velocity = dir * bulletSpeed; // velocity (makes the bullet move)
+                b.shape.setFillColor(sf::Color::Yellow);
+                bullets.push_back(b); // add to bullets list
             }
 
-        // Per-frame: update enemy visibility timers
-        for (size_t i = 0; i < enemies.size(); ++i) {
-            if (enemies[i].visibilityTimer > 0.f) {
-                enemies[i].visibilityTimer -= dt;
-                if (enemies[i].visibilityTimer <= 0.f) {
-                    enemies[i].visibilityTimer = 0.f;
-                    enemies[i].set_visibility(false);
-                }
-            }
-        }
-
-        // Update bullets
-        for (size_t i = 0; i < bullets.size(); ) {
-            Bullet &b = bullets[i]; //take current bullet
-            b.shape.move(b.velocity * dt); //move it according to its velocity
-            sf::Vector2f p = b.shape.getPosition(); // current position
-            // remove bullet if outside window bounds (with margin)
-            if (p.x < -50 || p.x > WINDOW_W + 50 || p.y < -50 || p.y > WINDOW_H + 50) { //erase if out of bounds
-                bullets.erase(bullets.begin() + i);
-            } else ++i;
-        }
-
-        // Keep updating all enemies
-        for (size_t i = 0; i < enemies.size(); ++i) {
-            enemies[i].shape.move(enemies[i].velocity * dt);
-        }
-
-        // Collision detection: bullets vs enemies
-        for (size_t bi = 0; bi < bullets.size(); ) {
-            bool bulletRemoved = false;
-            sf::Vector2f bp = bullets[bi].shape.getPosition(); // bullet position
-            for (size_t ei = 0; ei < enemies.size(); ++ei) { // check against all enemies
-                sf::Vector2f ep = enemies[ei].shape.getPosition(); // enemy position
-                float dx = bp.x - ep.x; // difference in x
-                float dy = bp.y - ep.y; // difference in y
-                float dist2 = dx*dx + dy*dy;
-                float rsum = bullets[bi].shape.getRadius() + enemies[ei].shape.getRadius(); // if distance squared is less than radius sum squared, we have a collision
-                if (dist2 <= rsum * rsum) {
-                    // hit: remove both bullet and enemy (one-shot kill)
-                    enemies.erase(enemies.begin() + ei);
-                    bullets.erase(bullets.begin() + bi);
-                    bulletRemoved = true;
-                    break;
-                }
-            }
-            if (!bulletRemoved) ++bi;
-        }
-
-        // Check if any enemy reached the center -> remove them (as if they hit the turret)
-        for (size_t i = 0; i < enemies.size(); ) {
-            sf::Vector2f ep = enemies[i].shape.getPosition(); // enemy position
-            float dx = ep.x - CENTER.x;
-            float dy = ep.y - CENTER.y;
-            float dist2 = dx*dx + dy*dy; // distance squared to center
-            if (dist2 <= (turretRadius + enemies[i].shape.getRadius()) * (turretRadius + enemies[i].shape.getRadius())) {
-                // enemy reached turret: remove it
-                enemies.erase(enemies.begin() + i);
-                flashTimer = 15;
-                lives--;
-                hearts--;
-                if (hearts == 0) {
-                    hearts++;
-                    heartSprite.setTextureRect(sf::IntRect({0, 0}, {0, 7000}));
-                    return 0;
+            // Echolocation: Up Arrow key (charge and release)
+            bool isWHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up);
+            if (isWHeld) {
+                // Charge the echo
+                if (echoCharge <= echoMaxCharge) {
+                    echoCharge = echoCharge + dt * echoChargeRate;
+                    chargeBar.setSize(sf::Vector2f(barWidth, -(echoCharge)));
                 } else {
-                    heartSprite.setTextureRect(sf::IntRect({0, 0}, {hearts * 8000, 7000}));
+                    echoCharge = echoMaxCharge;
+                    chargeBar.setSize(sf::Vector2f(barWidth, -(echoCharge)));
                 }
-            } else ++i;
-        }
+            } else if (wasWHeld && echoCharge > 0.f) {
+                // if W was released - spawn the echo with the accumulated charge
+                chargeBar.setSize(sf::Vector2f(barWidth, 0.f));
+                Echo ec;
+                ec.length = echoCharge * 2.f;
+                total_intensity += ec.length;
+                ec.elapsedTime = 0.f; // just spawned
+                float rad = turretAngleDeg * 3.14159265f / 180.f; // line must be perpendicular to turret direction
+                ec.velocity = sf::Vector2f(std::cos(rad), std::sin(rad));
+                // Create rectangle perpendicular to direction (width = thickness, length = charge)
+                ec.shape = sf::RectangleShape(sf::Vector2f(ec.length, echoThickness));
+                ec.shape.setOrigin(sf::Vector2f(ec.length / 2.f, echoThickness / 2.f)); // center origin so it shrinks from both sides
+                ec.shape.setPosition(CENTER);
+                ec.shape.setRotation(sf::degrees(turretAngleDeg + 90.f)); // perpendicular to turret direction
+                ec.shape.setFillColor(sf::Color::Cyan);
+                echos.push_back(ec);
+                echoCharge = 0.f;  // Reset charge
+            }
+            wasWHeld = isWHeld;
 
-        // sets up death flash
-        flashTimer--;
-        if (flashTimer > 0){
-            loseLifeFlash.setFillColor(sf::Color(255, 0, 0, 100));
-        } else {
-            loseLifeFlash.setFillColor(sf::Color(255, 0, 0, 0));
-            flashTimer = 0;
-        }
+            // Big Wave: E key (charge and release)
+            bool isEHeld = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E);
+            if (isEHeld) {
+                // Charge the big wave
+                if (bigWaveCharge <= bigWaveMaxCharge) {
+                    bigWaveCharge = bigWaveCharge + dt * bigWaveChargeRate;
+                    bigWaveChargeBar.setSize(sf::Vector2f(barWidth, -(bigWaveCharge)));
+                } else {
+                    bigWaveCharge = bigWaveMaxCharge;
+                    bigWaveChargeBar.setSize(sf::Vector2f(barWidth, -(bigWaveCharge)));
+                }
+            } else if (wasEHeld && bigWaveCharge > 0.f) {
+                // if E was released - spawn the big wave with the accumulated charge
+                bigWaveChargeBar.setSize(sf::Vector2f(barWidth, 0.f));
+                BigEcho bec;
+                bec.radius = bigWaveCharge * 2.f;
+                total_intensity += bec.radius * 2; // big wave intensity is much higher
+                bec.elapsedTime = 0.f; // just spawned
+                // Create circle that expands from center
+                bec.shape = sf::CircleShape(bec.radius);
+                bec.shape.setOrigin(sf::Vector2f(bec.radius, bec.radius)); // center origin
+                bec.shape.setPosition(CENTER);
+                bec.shape.setFillColor(sf::Color::Transparent);
+                bec.shape.setOutlineThickness(3.f);
+                bec.shape.setOutlineColor(sf::Color::Magenta);
+                BigEchos.push_back(bec);
+                bigWaveCharge = 0.f;  // Reset charge
+            }
+            wasEHeld = isEHeld;
 
-        // Wave logic
-        if (waveActive && enemies.empty()) {
-            waveActive = false;
-            nextWaveTimer = 0.f;
-        }
-        if (!waveActive) {
-            nextWaveTimer += dt;
-            if (nextWaveTimer >= timeBetweenWaves) {
-                ++wave;
-                spawnWave(wave);
+            // Pause menu
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape)) {
+                    std::cout << "esc pressed!" << std::endl;
+                    isPaused = true;
+                    resumeButton.setFillColor(sf::Color(100, 100, 100, 255));
+                    quitButton.setFillColor(sf::Color(100, 100, 100, 255));
+                    if (sf::Mouse::isButtonPressed(sf::Mouse::Left)){
+                        sf::Vector2i mousePosition = sf::Mouse::getPosition(window);
+                        if(resumeButton.getGlobalBounds().contains(mousePosition)) {
+                            isPaused = false;
+                            resumeButton.setFillColor(sf::Color(100, 100, 100, 0));
+                            quitButton.setFillColor(sf::Color(100, 100, 100, 0));
+                        } else if (quitButton.getGlobalBounds().contains(mousePosition)) {
+                            return 0;
+                        }
+                    }
+            }
+
+            // Update echos (shrinking rectangles that fly outward)
+            for (size_t i = 0; i < echos.size(); ) {
+                echos[i].elapsedTime += dt;
+                
+                // Rectangle shrinks at constant rate
+                echos[i].length = (echos[i].length - dt * echoShrinkRate);
+                
+                // Update rectangle size according to the above change
+                echos[i].shape.setSize(sf::Vector2f(echos[i].length, echoThickness));
+                echos[i].shape.setOrigin(sf::Vector2f(echos[i].length / 2.f, echoThickness / 2.f)); // recenter as it shrinks
+                
+                // Move outward from center
+                sf::Vector2f offset = echos[i].velocity * echoSpeed * echos[i].elapsedTime;
+                // ^ The above line caluclates how far an echo has traveled by multiplying its direction by speed and total time alive
+                echos[i].shape.setPosition(CENTER + offset);
+                // Remove when length is 0
+                if (echos[i].length <= 0.f) {
+                    echos.erase(echos.begin() + i);
+                } else {
+                    ++i;
+                }
+            }
+
+            // Update big waves (expanding circles)
+            for (size_t i = 0; i < BigEchos.size(); ) {
+                BigEchos[i].elapsedTime += dt;
+                
+                // Circle shrinks at constant rate
+                BigEchos[i].radius = (BigEchos[i].radius - dt * bigWaveShrinkRate);
+                
+                // Update circle size according to the above change
+                BigEchos[i].shape.setRadius(BigEchos[i].radius);
+                BigEchos[i].shape.setOrigin(sf::Vector2f(BigEchos[i].radius, BigEchos[i].radius)); // recenter as it shrinks
+                BigEchos[i].shape.setPosition(CENTER);
+                
+                // Remove when radius is 0
+                if (BigEchos[i].radius <= 0.f) {
+                    BigEchos.erase(BigEchos.begin() + i);
+                } else {
+                    ++i;
+                }
+            }
+
+            if (!lives){
+                return 0;
+            }
+
+            // For each enemy, check against each echo using the echo rectangle's inverse transform.
+            // Transform the enemy center into the echo's local space (where the rectangle is axis-aligned and centered),
+            // clamp to the rectangle extents to find the closest point, then test circle-vs-point distance.
+            // On hit: set enemy visible and start a 4.0s timer (do NOT erase the enemy).
+            for (size_t ei = 0; ei < enemies.size(); ++ei) {
+                const sf::Vector2f enemyPos = enemies[ei].shape.getPosition();
+                const float enemyR = enemies[ei].shape.getRadius();
+                bool hit = false;
+                for (size_t ec_i = 0; ec_i < echos.size(); ++ec_i) {
+                    const Echo &ec = echos[ec_i];
+                    // If an echo has non-positive length skip
+                    if (ec.length <= 0.f) continue;
+
+                    // Inverse-transform the enemy position into the echo's local coordinates
+                    sf::Transform inv = ec.shape.getTransform().getInverse();
+                    sf::Vector2f local = inv.transformPoint(enemyPos);
+
+                    // Rectangle is centered at origin in local space, extents are half-length and half-thickness
+                    float halfW = ec.length / 2.f;
+                    float halfH = echoThickness / 2.f;
+
+                    // Find closest point on the axis-aligned rectangle to the local point
+                    float closestX = std::max(-halfW, std::min(local.x, halfW));
+                    float closestY = std::max(-halfH, std::min(local.y, halfH));
+
+                    float dx = local.x - closestX;
+                    float dy = local.y - closestY;
+                    float dist2 = dx*dx + dy*dy;
+
+                    if (dist2 <= enemyR * enemyR) {
+                        // Hit: mark enemy visible for 4 seconds (don't erase)
+                        enemies[ei].set_visibility(true);
+                        enemies[ei].visibilityTimer = 4.0f; // seconds
+                        hit = true;
+                        std::cout << "collision" << std::endl;
+                        break;
+                    }
+                }
+                (void)hit; // unused here but kept for clarity if you add debug/use it
+                }
+
+            // Per-frame: update enemy visibility timers
+            for (size_t i = 0; i < enemies.size(); ++i) {
+                if (enemies[i].visibilityTimer > 0.f) {
+                    enemies[i].visibilityTimer -= dt;
+                    if (enemies[i].visibilityTimer <= 0.f) {
+                        enemies[i].visibilityTimer = 0.f;
+                        enemies[i].set_visibility(false);
+                    }
+                }
+            }
+
+            // Update bullets
+            for (size_t i = 0; i < bullets.size(); ) {
+                Bullet &b = bullets[i]; //take current bullet
+                b.shape.move(b.velocity * dt); //move it according to its velocity
+                sf::Vector2f p = b.shape.getPosition(); // current position
+                // remove bullet if outside window bounds (with margin)
+                if (p.x < -50 || p.x > WINDOW_W + 50 || p.y < -50 || p.y > WINDOW_H + 50) { //erase if out of bounds
+                    bullets.erase(bullets.begin() + i);
+                } else ++i;
+            }
+
+            // Keep updating all enemies
+            for (size_t i = 0; i < enemies.size(); ++i) {
+                enemies[i].shape.move(enemies[i].velocity * dt);
+            }
+
+            // Collision detection: bullets vs enemies
+            for (size_t bi = 0; bi < bullets.size(); ) {
+                bool bulletRemoved = false;
+                sf::Vector2f bp = bullets[bi].shape.getPosition(); // bullet position
+                for (size_t ei = 0; ei < enemies.size(); ++ei) { // check against all enemies
+                    sf::Vector2f ep = enemies[ei].shape.getPosition(); // enemy position
+                    float dx = bp.x - ep.x; // difference in x
+                    float dy = bp.y - ep.y; // difference in y
+                    float dist2 = dx*dx + dy*dy;
+                    float rsum = bullets[bi].shape.getRadius() + enemies[ei].shape.getRadius(); // if distance squared is less than radius sum squared, we have a collision
+                    if (dist2 <= rsum * rsum) {
+                        // hit: remove both bullet and enemy (one-shot kill)
+                        enemies.erase(enemies.begin() + ei);
+                        bulletRemoved = false;
+                        break;
+                    }
+                }
+                if (!bulletRemoved) ++bi;
+            }
+
+            // Check if any enemy reached the center -> remove them (as if they hit the turret)
+            for (size_t i = 0; i < enemies.size(); ) {
+                sf::Vector2f ep = enemies[i].shape.getPosition(); // enemy position
+                float dx = ep.x - CENTER.x;
+                float dy = ep.y - CENTER.y;
+                float dist2 = dx*dx + dy*dy; // distance squared to center
+                if (dist2 <= (turretRadius + enemies[i].shape.getRadius()) * (turretRadius + enemies[i].shape.getRadius())) {
+                    // enemy reached turret: remove it
+                    enemies.erase(enemies.begin() + i);
+                    flashTimer = 15;
+                    lives--;
+                    hearts--;
+                    if (hearts == 0) {
+                        hearts++;
+                        heartSprite.setTextureRect(sf::IntRect({0, 0}, {0, 7000}));
+                        return 0;
+                    } else {
+                        heartSprite.setTextureRect(sf::IntRect({0, 0}, {hearts * 8000, 7000}));
+                    }
+                } else ++i;
+            }
+
+            // sets up death flash
+            flashTimer--;
+            if (flashTimer > 0){
+                loseLifeFlash.setFillColor(sf::Color(255, 0, 0, 100));
+            } else {
+                loseLifeFlash.setFillColor(sf::Color(255, 0, 0, 0));
+                flashTimer = 0;
+            }
+
+            // Wave logic
+            if (waveActive && enemies.empty()) {
+                waveActive = false;
+                nextWaveTimer = 0.f;
+            }
+            if (!waveActive) {
+                nextWaveTimer += dt;
+                if (nextWaveTimer >= timeBetweenWaves) {
+                    ++wave;
+                    spawnWave(wave);
+                }
             }
         }
 
@@ -418,8 +516,16 @@ int main() {
         for (auto &ec : echos) {
             window.draw(ec.shape);
         }
-        total_intensity -= 10.f; // might not be subtracting by the right number *****
-        if (total_intensity < 0.f) total_intensity = 0.f;
+
+        // Draw big waves
+        for (auto &bec : BigEchos) {
+            window.draw(bec.shape);
+        }
+        
+        if(!isPaused){
+            total_intensity -= 1.f; // might not be subtracting by the right number *****
+            if (total_intensity < 0.f) total_intensity = 0.f;
+        }
 
         // Draw hearts
         window.draw(heartSprite);
@@ -427,6 +533,10 @@ int main() {
         // Draw Charge Bar
         window.draw(chargeBarBackground);
         window.draw(chargeBar);
+
+        // Draw Big Wave Charge Bar
+        window.draw(bigWaveChargeBarBackground);
+        window.draw(bigWaveChargeBar);
 
         // Draw turret: base circle
         sf::CircleShape base(turretRadius);
@@ -453,12 +563,18 @@ int main() {
         // Draw loseLifeFlash
         window.draw(loseLifeFlash);
 
+        // Draw pause menu
+        window.draw(resumeButton);
+        window.draw(quitButton);
+        
         // UI text
         if (fontLoaded) {
             uiText.setString("Wave: " + std::to_string(wave) +
                              "    Enemies: " + std::to_string((int)enemies.size()) +
                              "    Bullets: " + std::to_string((int)bullets.size()) +
-                             "\nControls: Left/Right to rotate, Space to fire");
+                             "    Intensity: " + std::to_string((int)total_intensity) +
+                             "\nControls: Left/Right to rotate, Space to fire, Esc to pause,"
+                            "\n Up to charge echo,");
             window.draw(uiText);
         }
 
@@ -466,3 +582,5 @@ int main() {
     }
     return 0;
 }
+
+// TODO: Create explosion ability when a certain amount of enemies have been killed
