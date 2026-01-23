@@ -82,3 +82,23 @@ Or separately:
 make compile
 ./bin/main
 ```
+
+## Windows Setup (WORK IN PROGRESS)
+### IMPORTANT: 
+There is currently no way to run the game directly from the repo that we have figured out, so this is merely a substitute. You will have to remove all instances of sprites and the use of custom textures in order for it to work.
+### THIS SETUP MIGHT NOT WORK FOR EVERYONE, OR EVEN AT ALL
+### 1. Install Visual Studio
+- Follow this link: https://visualstudio.microsoft.com/downloads/
+- Make sure you select "Desktop development with C++" during installation
+- after installing, add ```main.cpp``` from this repo to a new C++ project
+### 2. Install SFML using vcpkg
+#### Installing vcpkg
+- Open PowerShell or Command Prompt.
+- Clone the repository: ```git clone https://github.com/Microsoft/vcpkg.git.```
+- Run the bootstrap script: ```.\vcpkg\bootstrap-vcpkg.bat```
+#### Installing SFML
+Run:
+```bash
+.\vcpkg install sfml[graphics,window,audio,network]:x64-windows
+```
+in Windows Powershell or Command Prompt
