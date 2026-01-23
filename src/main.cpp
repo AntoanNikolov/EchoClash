@@ -64,9 +64,7 @@ int main() {
     const float turretRadius = 18.f;
 
     // Charge bar
-    const float barHeight = 150.f;
     const float barWidth = 20.f;
-    float barCharge = 0.f;
 
     // Make Charge Bar
     sf::RectangleShape chargeBarBackground(sf::Vector2f(26.f, 157.f));
@@ -76,17 +74,6 @@ int main() {
     chargeBarBackground.setOrigin(sf::Vector2f(-7.5, -436.f));
     chargeBarBackground.setFillColor(sf::Color(100, 100, 100));
 
-    // Make Hearts
-    sf::Texture heartTexture("heart.png");
-    sf::Sprite heartSprite(heartTexture);
-    heartSprite.setTextureRect(sf::IntRect({0, 0}, {40000, 7000}));
-    heartSprite.setPosition(sf::Vector2f(10.f, 10.f));
-    heartSprite.setScale(sf::Vector2f(0.05f, 0.05f));
-    heartSprite.scale(sf::Vector2f(0.04f, 0.04f));
-    heartTexture.setRepeated(true);
-    heartTexture.setSmooth(true);
-    window.draw(heartSprite);
-
     // Shooting
     const float bulletSpeed = 520.f;
     const float bulletRadius = 4.f;
@@ -95,7 +82,7 @@ int main() {
 
     // Lose Life Flash
     int flashTimer = 0;
-    sf::RectangleShape loseLifeFlash(sf::Vector2f(999.f, 999.f));
+    sf::RectangleShape loseLifeFlash(sf::Vector2f(800.f, 600.f));
     loseLifeFlash.setPosition(sf::Vector2f(0.f, 0.f));
     loseLifeFlash.setFillColor(sf::Color(255, 0, 0, 0));
 
@@ -114,11 +101,22 @@ int main() {
     std::vector<Echo> echos;
 
     int wave = 1;
-    int lives = 9999;
-    int hearts = 5;
+    int lives = 10;
+    int hearts = lives;
     bool waveActive = false;
     float nextWaveTimer = 0.f;
     const float timeBetweenWaves = 1.0f;
+
+    // Make Hearts
+    sf::Texture heartTexture("heart.png");
+    sf::Sprite heartSprite(heartTexture);
+    heartSprite.setTextureRect(sf::IntRect({0, 0}, {8000 * lives, 7000}));
+    heartSprite.setPosition(sf::Vector2f(10.f, 10.f));
+    heartSprite.setScale(sf::Vector2f(0.05f, 0.05f));
+    heartSprite.scale(sf::Vector2f(0.04f, 0.04f));
+    heartTexture.setRepeated(true);
+    heartTexture.setSmooth(true);
+    window.draw(heartSprite);
 
     sf::Font font;
     bool fontLoaded = false;
@@ -229,7 +227,7 @@ int main() {
             // if W was released - spawn the echo with the accumulated charge
             chargeBar.setSize(sf::Vector2f(barWidth, 0.f));
             Echo ec;
-            ec.length = echoCharge;
+            ec.length = echoCharge * 1.5f;
             total_intensity += ec.length;
             ec.elapsedTime = 0.f; // just spawned
             float rad = turretAngleDeg * 3.14159265f / 180.f; // line must be perpendicular to turret direction
@@ -375,7 +373,13 @@ int main() {
                 flashTimer = 15;
                 lives--;
                 hearts--;
-                heartSprite.setTextureRect(sf::IntRect({0, 0}, {40000 - (5- hearts) * 8000, 7000}));
+                if (hearts == 0) {
+                    hearts++;
+                    heartSprite.setTextureRect(sf::IntRect({0, 0}, {0, 7000}));
+                    return 0;
+                } else {
+                    heartSprite.setTextureRect(sf::IntRect({0, 0}, {hearts * 8000, 7000}));
+                }
             } else ++i;
         }
 
