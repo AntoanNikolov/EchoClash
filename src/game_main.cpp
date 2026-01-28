@@ -126,7 +126,7 @@ struct BigEcho : public EchoBase {
 }
 
 };
-
+#ifndef TESTING // wrapping to avoid conflicts with test suite's main()
 int main() {
     const unsigned int WINDOW_W = 800;
     const unsigned int WINDOW_H = 600;
@@ -362,7 +362,7 @@ int main() {
                 chargeBar.setSize(sf::Vector2f(barWidth, 0.f));
                 Echo ec;
                 ec.length = echoCharge * 2.f;
-                total_intensity += ec.length/2;
+                total_intensity += ec.length/4;
                 ec.elapsedTime = 0.f; // just spawned
                 float rad = turretAngleDeg * 3.14159265f / 180.f; // line must be perpendicular to turret direction
                 ec.velocity = sf::Vector2f(std::cos(rad), std::sin(rad));
@@ -654,3 +654,4 @@ int main() {
     }
     return 0;
 }
+#endif
