@@ -13,13 +13,22 @@ struct Bullet {
     sf::Vector2f velocity;
 };
 
-struct Enemy {
-    sf::CircleShape shape;
-    sf::Vector2f velocity;
+class Enemy {
+private:
     bool visible = false;
+    sf::Vector2f velocity;
+public:
+    sf::CircleShape shape;
     float visibilityTimer = 0.f; // seconds remaining the enemy stays "visible"
 
     void set_visibility(bool v);
+    auto set_velocity(const sf::Vector2f& vel) {
+        velocity = vel;
+        return velocity;
+    }
+    sf::Vector2f get_velocity() const {
+        return velocity;
+    }
 };
 
 void Enemy::set_visibility(bool v) {
@@ -196,7 +205,7 @@ int main() {
             e.shape.setOrigin(sf::Vector2f(e.shape.getRadius(), e.shape.getRadius())); // by default origin is top-left, we are centering it
             e.shape.setPosition(pos); // move he ORIGIN we made in the line above
              // ... velocity setup ...
-            e.visible = false;          // ensure default
+            e.set_visibility(false);         // ensure default
             e.visibilityTimer = 0.f;    // ensure default
             // velocity towards center
             sf::Vector2f dir = CENTER - pos; //vector pointing from the enemy position to the center. Center - enemy position
@@ -204,7 +213,7 @@ int main() {
             if (len != 0) dir /= len; //prevent division by zero when enemy reaches center
             // speed increases with wave number + some random variation
             float speed = 40.f + 8.f * waveNumber + (std::uniform_real_distribution<float>(-10.f, 10.f)(rng));
-            e.velocity = dir * speed; //this makes the enemy actually move
+            e.set_velocity(dir * speed); //this makes the enemy actually move
             e.shape.setFillColor(sf::Color(0, 0, 0, 0));
             enemies.push_back(e); // adds the enemy
         }
@@ -454,7 +463,7 @@ int main() {
 
             // Keep updating all enemies
             for (size_t i = 0; i < enemies.size(); ++i) {
-                enemies[i].shape.move(enemies[i].velocity * dt);
+                enemies[i].shape.move(enemies[i].get_velocity() * dt);
             }
 
             // Collision detection: bullets vs enemies
@@ -621,7 +630,7 @@ int main() {
                              "    Bullets: " + std::to_string((int)bullets.size()) +
                              "    Intensity: " + std::to_string((int)total_intensity) +
                              "\nControls: Left/Right to rotate, Space to fire, Esc to pause,"
-                            "\n Up to charge echo,");
+                            "\n Up to charge echo, E to charge big echo");
             window.draw(uiText);
             if (isPaused) {
                 window.draw(pauseText);
