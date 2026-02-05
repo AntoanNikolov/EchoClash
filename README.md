@@ -50,7 +50,9 @@ brew info sfml
 
 From the project root:  
 
-``` make run```  
+```bash
+make run
+```  
 
 Or separately:  
 ```bash
@@ -60,26 +62,41 @@ make compile
 
 ## Linux Setup
 ### 1. Install SFML
+You can install SFML using either your system package manager or Homebrew. The Makefile will automatically detect which one you're using.
+### Option A: System Package Manager (Not Recommended)
 #### Ubuntu / Debian
-``` sudo apt update ```  
-``` sudo apt install libsfml-dev``` 
+```bash
+sudo apt update
+```
+```bash
+sudo apt install libsfml-dev
+```
 #### Arch Linux
-``` sudo pacman -S sfml ```
+```bash
+sudo pacman -S sfml
+```
 #### Fedora
-``` sudo dnf install SFML-devel ```
-
-    On Linux, SFML is installed in standard system locations (/usr/include, /usr/lib), so no manual path configuration is required. It will be found automatically.
-### 2. Build and Run
-
-From the project root:  
-
-``` make run```  
-
-Or separately:  
+```bash
+sudo dnf install SFML-devel
+```
+- On Linux, SFML installed via system package managers is placed in standard system locations (/usr/include, /usr/lib), so no manual path configuration is required.
+### Option B: Homebrew (Recommended!)
+If you prefer using Homebrew on Linux:
+```bash
+brew install sfml
+```
+The Makefile will automatically detect the Homebrew installation and configure the appropriate paths and rpath settings.
+2. Build and Run
+From the project root:
+```bash
+make run
+```
+Or separately:
 ```bash
 make compile
 ./bin/main
 ```
+The build system will automatically detect whether you're using system packages or Homebrew and configure itself accordingly.
 
 ## Windows Setup  
 Good luck lol.

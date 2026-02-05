@@ -141,11 +141,11 @@ int main() {
     sf::Font font;
     bool fontLoaded = false;
     // SFML 3: openFromFile()
-    if (font.openFromFile("/Users/antoan/Documents/CSC222/EchoClash/assets/ARIAL.ttf")) {
-        fontLoaded = true;
+    if (font.openFromFile("assets/ARIAL.ttf")) {
+    fontLoaded = true;
     } else {
         std::cerr << "Warning: could not open font. UI text will be hidden.\n";
-    }   
+    }
 
     // Text in SFML 3 requires a Font in the constructor
     sf::Text uiText(font, "", 18);
