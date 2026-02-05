@@ -139,11 +139,10 @@ int main() {
     window.requestFocus();
     window.setFramerateLimit(60);
 
-    std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
     sf::Font font;
     bool fontLoaded = false;
     // SFML 3: openFromFile()
-    if (font.openFromFile("assets/ARIAL.ttf")) {
+    if (font.openFromFile("assets/ARIAL.TTF")) {
     fontLoaded = true;
     } else {
         std::cerr << "Warning: could not open font. UI text will be hidden.\n";
