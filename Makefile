@@ -18,9 +18,19 @@ ifeq ($(UNAME_S),Darwin)
            -Wl,-rpath,$(SFML_PATH)/lib \
            -lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio -lsfml-network
 else
-    # Linux (apt / dnf / pacman)
-    INCLUDES =
-    LIBS = -lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio -lsfml-network
+    # Linux - try Homebrew first, fall back to system
+    HOMEBREW_SFML = $(shell brew --prefix sfml 2>/dev/null)
+    ifneq ($(HOMEBREW_SFML),)
+        # Linux Homebrew
+        INCLUDES = -I$(HOMEBREW_SFML)/include
+        LIBS = -L$(HOMEBREW_SFML)/lib \
+               -Wl,-rpath,$(HOMEBREW_SFML)/lib \
+               -lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio -lsfml-network
+    else
+        # Linux system packages (apt / dnf / pacman)
+        INCLUDES =
+        LIBS = -lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio -lsfml-network
+    endif
 endif
 
 # ---------- RULES ----------
