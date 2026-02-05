@@ -21,7 +21,7 @@ A stationary center turret defending against waves of enemies. The turret can ro
 
 ### Common
 - **C++17 or newer**
-- **SFML 3.x**
+- **SFML 3.0.2**
 - **Make**
 - **g++ or clang++**
 
@@ -63,7 +63,7 @@ make compile
 ## Linux Setup
 ### 1. Install SFML
 You can install SFML using either your system package manager or Homebrew. The Makefile will automatically detect which one you're using.
-### Option A: System Package Manager (Not Recommended)
+### Option A: System Package Manager (Not recommended, may be outdated in your package manager)
 #### Ubuntu / Debian
 ```bash
 sudo apt update
