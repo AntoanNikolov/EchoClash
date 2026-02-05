@@ -1,4 +1,5 @@
 #include <memory>
+#include <filesystem>
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
 #include <SFML/System.hpp>
@@ -138,6 +139,7 @@ int main() {
     window.requestFocus();
     window.setFramerateLimit(60);
 
+    std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
     sf::Font font;
     bool fontLoaded = false;
     // SFML 3: openFromFile()
